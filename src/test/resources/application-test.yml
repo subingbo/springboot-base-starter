@@ -3,6 +3,27 @@ campus:
     secret: test-jwt-secret-key-for-integration-tests-32b
     access-token-expiration: 1800
     refresh-token-expiration: 604800
+  auth:
+    captcha-enabled: false
+    max-login-fail: 5
+    lock-minutes: 15
+    register-enabled: true
+    password-min-length: 8
+    password-max-length: 32
+    refresh-grace-seconds: 0
+  security:
+    trust-proxy-headers: false
+    admin-role-code: ADMIN
+    rate-limit-enabled: false
+    repeat-submit-enabled: true
+  file:
+    upload-dir: target/test-uploads
+    max-size-mb: 10
+    image-max-pixels: 25000000
+    public-url-prefix: /uploads
+    import-max-rows: 200
+  log:
+    slow-sql-ms: 500
 
 springdoc:
   api-docs:

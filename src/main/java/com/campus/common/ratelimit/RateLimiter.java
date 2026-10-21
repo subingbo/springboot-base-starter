@@ -1,6 +1,6 @@
 package com.campus.common.ratelimit;
 
-import com.campus.common.constant.RedisKey;
+import com.campus.common.cache.CacheKeys;
 import com.campus.common.exception.RateLimitException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -34,7 +34,7 @@ public class RateLimiter {
     }
 
     public void check(String bizKey, int limit, Duration window) {
-        String key = RedisKey.rate(bizKey);
+        String key = CacheKeys.rate(bizKey);
         long windowMillis = window.toMillis();
         Long allowed = stringRedisTemplate.execute(
                 rateLimitScript,

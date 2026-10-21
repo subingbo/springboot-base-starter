@@ -1,8 +1,15 @@
 target/
+logs/
+uploads/
 .idea/
+.vscode/
 *.iml
 .classpath
 .project
 .settings/
 .DS_Store
 *.log
+.mimosa/
+.agents/
+.zcode/
+.env

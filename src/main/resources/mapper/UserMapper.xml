@@ -1,45 +1,229 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.campus.user.mapper.UserMapper">
+<mapper namespace="com.campus.system.user.mapper.UserMapper">
 
-    <select id="selectByUsername" resultType="com.campus.user.entity.User">
-        SELECT id, username, password, nickname, avatar, status, created_at, updated_at
+    <sql id="baseColumns">
+        id, dept_id, username, password, nickname, email, phone, sex, avatar, status,
+        token_version, login_ip, login_time, create_by, create_time, update_by, update_time,
+        remark, deleted, version
+    </sql>
+
+    <sql id="userFilters">
+        <if test="username != null and username != ''">
+            AND u.username LIKE CONCAT('%', #{username}, '%')
+        </if>
+        <if test="nickname != null and nickname != ''">
+            AND u.nickname LIKE CONCAT('%', #{nickname}, '%')
+        </if>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+        <if test="deptId != null">
+            AND u.dept_id = #{deptId}
+        </if>
+        <if test="beginTime != null">
+            AND u.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND u.create_time &lt;= #{endTime}
+        </if>
+        <if test="dataScope != null and dataScope.rules != null and dataScope.rules.size() > 0">
+            AND (
+            <foreach collection="dataScope.rules" item="rule" separator=" OR ">
+                <choose>
+                    <when test='rule.type == "ALL"'>1 = 1</when>
+                    <when test='rule.type == "CUSTOM"'>
+                        <choose>
+                            <when test="rule.deptIds != null and rule.deptIds.size() > 0">
+                                d.id IN
+                                <foreach collection="rule.deptIds" item="deptId" open="(" separator="," close=")">
+                                    #{deptId}
+                                </foreach>
+                            </when>
+                            <otherwise>1 = 0</otherwise>
+                        </choose>
+                    </when>
+                    <when test='rule.type == "DEPT"'>d.id = #{rule.deptId}</when>
+                    <when test='rule.type == "DEPT_AND_CHILD"'>
+                        (d.id = #{rule.deptId} OR d.ancestors LIKE CONCAT(#{rule.ancestorsPrefix}, '%'))
+                    </when>
+                    <when test='rule.type == "SELF"'>u.id = #{rule.userId}</when>
+                    <otherwise>1 = 0</otherwise>
+                </choose>
+            </foreach>
+            )
+        </if>
+    </sql>
+
+    <select id="selectByUsername" resultType="com.campus.system.user.entity.User">
+        SELECT <include refid="baseColumns"/>
         FROM sys_user
-        WHERE username = #{username}
+        WHERE username = #{username} AND deleted = 0
         LIMIT 1
     </select>
 
-    <select id="selectById" resultType="com.campus.user.entity.User">
-        SELECT id, username, password, nickname, avatar, status, created_at, updated_at
+    <select id="selectById" resultType="com.campus.system.user.entity.User">
+        SELECT <include refid="baseColumns"/>
         FROM sys_user
-        WHERE id = #{id}
+        WHERE id = #{id} AND deleted = 0
         LIMIT 1
+    </select>
+
+    <select id="selectPasswordById" resultType="string">
+        SELECT password FROM sys_user WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <select id="countByUsername" resultType="int">
+        SELECT COUNT(*) FROM sys_user WHERE username = #{username}
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO sys_user (username, password, nickname, avatar, status, created_at, updated_at)
-        VALUES (#{username}, #{password}, #{nickname}, #{avatar}, #{status}, NOW(), NOW())
+        INSERT INTO sys_user (dept_id, username, password, nickname, email, phone, sex, avatar, status,
+                              token_version, create_by, create_time, update_by, update_time, remark, deleted, version)
+        VALUES (#{deptId}, #{username}, #{password}, #{nickname}, #{email}, #{phone},
+                COALESCE(#{sex}, 0), #{avatar}, COALESCE(#{status}, 1), COALESCE(#{tokenVersion}, 0),
+                #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark},
+                COALESCE(#{deleted}, 0), COALESCE(#{version}, 0))
+    </insert>
+
+    <insert id="insertBatch">
+        INSERT INTO sys_user (dept_id, username, password, nickname, email, phone, sex, avatar, status,
+                              token_version, create_by, create_time, update_by, update_time, remark, deleted, version)
+        VALUES
+        <foreach collection="list" item="u" separator=",">
+            (#{u.deptId}, #{u.username}, #{u.password}, #{u.nickname}, #{u.email}, #{u.phone},
+             COALESCE(#{u.sex}, 0), #{u.avatar}, COALESCE(#{u.status}, 1), COALESCE(#{u.tokenVersion}, 0),
+             #{u.createBy}, #{u.createTime}, #{u.updateBy}, #{u.updateTime}, #{u.remark},
+             COALESCE(#{u.deleted}, 0), COALESCE(#{u.version}, 0))
+        </foreach>
     </insert>
 
     <update id="updateById">
         UPDATE sys_user
         <set>
-            <if test="password != null">password = #{password},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
             <if test="nickname != null">nickname = #{nickname},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="sex != null">sex = #{sex},</if>
             <if test="avatar != null">avatar = #{avatar},</if>
             <if test="status != null">status = #{status},</if>
-            updated_at = NOW()
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = NOW(),
+            version = version + 1
         </set>
-        WHERE id = #{id}
+        WHERE id = #{id} AND deleted = 0 AND version = #{version}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE sys_user
+        SET password = #{password},
+            token_version = token_version + 1,
+            update_by = #{updateBy},
+            update_time = NOW()
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <update id="incrementTokenVersion">
+        UPDATE sys_user
+        SET token_version = token_version + 1,
+            update_time = NOW()
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <update id="updateLoginInfo">
+        UPDATE sys_user
+        SET login_ip = #{loginIp}, login_time = #{loginTime}
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <update id="updateAvatar">
+        UPDATE sys_user
+        SET avatar = #{avatar}, update_by = #{updateBy}, update_time = NOW()
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <update id="logicalDelete">
+        UPDATE sys_user
+        SET deleted = 1,
+            username = CONCAT(username, '_deleted_', id),
+            update_by = #{updateBy},
+            update_time = NOW(),
+            version = version + 1
+        WHERE id = #{id} AND deleted = 0
     </update>
 
     <insert id="insertUserRole">
-        INSERT INTO sys_user_role (user_id, role_id)
-        VALUES (#{userId}, #{roleId})
+        INSERT INTO sys_user_role (user_id, role_id) VALUES (#{userId}, #{roleId})
     </insert>
 
-    <select id="selectRoleIdByCode" resultType="long">
-        SELECT id FROM sys_role WHERE code = #{code} LIMIT 1
+    <delete id="deleteUserRoles">
+        DELETE FROM sys_user_role WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertUserRoles">
+        INSERT INTO sys_user_role (user_id, role_id) VALUES
+        <foreach collection="roleIds" item="roleId" separator=",">
+            (#{userId}, #{roleId})
+        </foreach>
+    </insert>
+
+    <select id="selectRoleIdsByUserId" resultType="long">
+        SELECT role_id FROM sys_user_role WHERE user_id = #{userId}
+    </select>
+
+    <delete id="deleteUserPosts">
+        DELETE FROM sys_user_post WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertUserPosts">
+        INSERT INTO sys_user_post (user_id, post_id) VALUES
+        <foreach collection="postIds" item="postId" separator=",">
+            (#{userId}, #{postId})
+        </foreach>
+    </insert>
+
+    <select id="selectPostIdsByUserId" resultType="long">
+        SELECT post_id FROM sys_user_post WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectPage" resultType="com.campus.system.user.entity.User">
+        SELECT u.id, u.dept_id, u.username, u.nickname, u.email, u.phone, u.sex, u.avatar, u.status,
+               u.login_ip, u.login_time, u.create_time, u.remark, u.version, d.name AS dept_name
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id AND d.deleted = 0
+        WHERE u.deleted = 0
+        <include refid="userFilters"/>
+    </select>
+
+    <select id="selectExportRows" resultType="com.campus.system.user.entity.User">
+        SELECT u.id, u.dept_id, u.username, u.nickname, u.email, u.phone, u.sex, u.status,
+               u.create_time, d.name AS dept_name
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id AND d.deleted = 0
+        WHERE u.deleted = 0
+        <if test="lastId != null and lastId > 0">
+            AND u.id &gt; #{lastId}
+        </if>
+        <include refid="userFilters"/>
+        ORDER BY u.id ASC
+        LIMIT 1000
+    </select>
+
+    <select id="selectUserIdsByRoleId" resultType="long">
+        SELECT ur.user_id
+        FROM sys_user_role ur
+        JOIN sys_user u ON ur.user_id = u.id AND u.deleted = 0
+        WHERE ur.role_id = #{roleId}
+    </select>
+
+    <select id="selectUserIdsByDeptId" resultType="long">
+        SELECT id FROM sys_user WHERE dept_id = #{deptId} AND deleted = 0
+    </select>
+
+    <select id="countByDeptId" resultType="int">
+        SELECT COUNT(*) FROM sys_user WHERE dept_id = #{deptId} AND deleted = 0
     </select>
 </mapper>

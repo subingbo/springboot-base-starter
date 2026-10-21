@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.file.mapper.SysFileMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_file (original_name, stored_name, stored_path, url, size, content_type,
+                              sha256, scene, uploader_id, create_by, create_time, update_by,
+                              update_time, remark, deleted, version)
+        VALUES (#{originalName}, #{storedName}, #{storedPath}, #{url}, #{size}, #{contentType},
+                #{sha256}, #{scene}, #{uploaderId}, #{createBy}, #{createTime}, #{updateBy},
+                #{updateTime}, #{remark}, COALESCE(#{deleted}, 0), COALESCE(#{version}, 0))
+    </insert>
+
+    <select id="selectById" resultType="com.campus.file.entity.SysFile">
+        SELECT id, original_name, stored_name, stored_path, url, size, content_type, sha256,
+               scene, uploader_id, create_by, create_time, update_by, update_time, remark,
+               deleted, version
+        FROM sys_file
+        WHERE id = #{id} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <update id="updateUrl">
+        UPDATE sys_file SET url = #{url}, update_time = NOW() WHERE id = #{id}
+    </update>
+</mapper>

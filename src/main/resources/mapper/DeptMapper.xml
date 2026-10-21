@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.system.dept.mapper.DeptMapper">
+
+    <sql id="baseColumns">
+        id, parent_id, ancestors, name, leader, phone, email, sort, status,
+        create_by, create_time, update_by, update_time, remark, deleted, version
+    </sql>
+
+    <select id="selectAll" resultType="com.campus.system.dept.entity.Dept">
+        SELECT <include refid="baseColumns"/>
+        FROM sys_dept
+        WHERE deleted = 0
+        ORDER BY sort ASC, id ASC
+    </select>
+
+    <select id="selectById" resultType="com.campus.system.dept.entity.Dept">
+        SELECT <include refid="baseColumns"/>
+        FROM sys_dept
+        WHERE id = #{id} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_dept (parent_id, ancestors, name, leader, phone, email, sort, status,
+                              create_by, create_time, update_by, update_time, remark, deleted, version)
+        VALUES (COALESCE(#{parentId}, 0), #{ancestors}, #{name}, #{leader}, #{phone}, #{email},
+                COALESCE(#{sort}, 0), COALESCE(#{status}, 1),
+                #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark},
+                COALESCE(#{deleted}, 0), COALESCE(#{version}, 0))
+    </insert>
+
+    <update id="updateById">
+        UPDATE sys_dept
+        <set>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="ancestors != null">ancestors = #{ancestors},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="leader != null">leader = #{leader},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = NOW(),
+            version = version + 1
+        </set>
+        WHERE id = #{id} AND deleted = 0 AND version = #{version}
+    </update>
+
+    <update id="logicalDelete">
+        UPDATE sys_dept
+        SET deleted = 1, update_by = #{updateBy}, update_time = NOW(), version = version + 1
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <select id="countChildren" resultType="int">
+        SELECT COUNT(*) FROM sys_dept WHERE parent_id = #{parentId} AND deleted = 0
+    </select>
+
+    <select id="countUsers" resultType="int">
+        SELECT COUNT(*) FROM sys_user WHERE dept_id = #{deptId} AND deleted = 0
+    </select>
+
+    <update id="updateDescendantAncestors">
+        UPDATE sys_dept
+        SET ancestors = CONCAT(#{newPrefix}, SUBSTRING(ancestors, CHAR_LENGTH(#{oldPrefix}) + 1)),
+            update_by = #{updateBy},
+            update_time = NOW()
+        WHERE deleted = 0
+          AND ancestors LIKE CONCAT(#{oldPrefix}, '%')
+    </update>
+
+    <select id="selectUserIdsByDeptId" resultType="long">
+        SELECT id FROM sys_user WHERE dept_id = #{deptId} AND deleted = 0
+    </select>
+</mapper>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.system.log.mapper.OperLogMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_oper_log (title, business_type, method, request_method, oper_user_id, oper_name,
+                                  oper_url, oper_ip, oper_location, oper_param, json_result, success,
+                                  error_msg, cost_time, oper_time)
+        VALUES (#{title}, #{businessType}, #{method}, #{requestMethod}, #{operUserId}, #{operName},
+                #{operUrl}, #{operIp}, #{operLocation}, #{operParam}, #{jsonResult}, #{success},
+                #{errorMsg}, #{costTime}, #{operTime})
+    </insert>
+
+    <select id="selectPage" resultType="com.campus.system.log.entity.OperationLog">
+        SELECT * FROM sys_oper_log
+        <where>
+            <if test="title != null and title != ''">
+                AND title LIKE CONCAT('%', #{title}, '%')
+            </if>
+            <if test="operName != null and operName != ''">
+                AND oper_name LIKE CONCAT('%', #{operName}, '%')
+            </if>
+            <if test="success != null">
+                AND success = #{success}
+            </if>
+            <if test="beginTime != null">
+                AND oper_time &gt;= #{beginTime}
+            </if>
+            <if test="endTime != null">
+                AND oper_time &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectById" resultType="com.campus.system.log.entity.OperationLog">
+        SELECT * FROM sys_oper_log WHERE id = #{id}
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM sys_oper_log WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByIds">
+        DELETE FROM sys_oper_log WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteBefore">
+        DELETE FROM sys_oper_log WHERE oper_time &lt; #{before}
+    </delete>
+
+    <select id="selectForExport" resultType="com.campus.system.log.entity.OperationLog">
+        SELECT * FROM sys_oper_log
+        <where>
+            <if test="title != null and title != ''">
+                AND title LIKE CONCAT('%', #{title}, '%')
+            </if>
+            <if test="operName != null and operName != ''">
+                AND oper_name LIKE CONCAT('%', #{operName}, '%')
+            </if>
+            <if test="success != null">
+                AND success = #{success}
+            </if>
+            <if test="beginTime != null">
+                AND oper_time &gt;= #{beginTime}
+            </if>
+            <if test="endTime != null">
+                AND oper_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT 10000
+    </select>
+</mapper>

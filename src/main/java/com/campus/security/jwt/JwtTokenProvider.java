@@ -22,17 +22,23 @@ public class JwtTokenProvider {
     public static final String CLAIM_USER_ID = "userId";
     public static final String CLAIM_USERNAME = "username";
     public static final String CLAIM_TOKEN_ID = "tokenId";
+    public static final String CLAIM_FAMILY_ID = "familyId";
+    public static final String CLAIM_TOKEN_VERSION = "tokenVersion";
     public static final String CLAIM_TYPE = "type";
     public static final String TYPE_REFRESH = "refresh";
 
     private final JwtProperties jwtProperties;
 
-    public String generateAccessToken(Long userId, String username, String tokenId) {
-        return buildToken(userId, username, tokenId, null, jwtProperties.getAccessTokenExpiration());
+    public String generateAccessToken(Long userId, String username, String tokenId,
+                                      String familyId, int tokenVersion) {
+        return buildToken(userId, username, tokenId, familyId, tokenVersion, null,
+                jwtProperties.getAccessTokenExpiration());
     }
 
-    public String generateRefreshToken(Long userId, String username, String tokenId) {
-        return buildToken(userId, username, tokenId, TYPE_REFRESH, jwtProperties.getRefreshTokenExpiration());
+    public String generateRefreshToken(Long userId, String username, String tokenId,
+                                       String familyId, int tokenVersion) {
+        return buildToken(userId, username, tokenId, familyId, tokenVersion, TYPE_REFRESH,
+                jwtProperties.getRefreshTokenExpiration());
     }
 
     public String newTokenId() {
@@ -43,12 +49,13 @@ public class JwtTokenProvider {
         try {
             return Jwts.parser()
                     .verifyWith(secretKey())
+                    .clockSkewSeconds(30)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (ExpiredJwtException ex) {
             throw new BusinessException(ResultCode.UNAUTHORIZED.getCode(), "Token 已过期");
-        } catch (JwtException ex) {
+        } catch (JwtException | IllegalArgumentException ex) {
             throw new BusinessException(ResultCode.UNAUTHORIZED.getCode(), "Token 无效");
         }
     }
@@ -67,6 +74,15 @@ public class JwtTokenProvider {
 
     public String getTokenId(Claims claims) {
         return claims.get(CLAIM_TOKEN_ID, String.class);
+    }
+
+    public String getFamilyId(Claims claims) {
+        return claims.get(CLAIM_FAMILY_ID, String.class);
+    }
+
+    public int getTokenVersion(Claims claims) {
+        Object value = claims.get(CLAIM_TOKEN_VERSION);
+        return value instanceof Number number ? number.intValue() : 0;
     }
 
     public String getUsername(Claims claims) {
@@ -91,7 +107,8 @@ public class JwtTokenProvider {
         return Math.max(diff / 1000, 0);
     }
 
-    private String buildToken(Long userId, String username, String tokenId, String type, long expirationSeconds) {
+    private String buildToken(Long userId, String username, String tokenId, String familyId,
+                              int tokenVersion, String type, long expirationSeconds) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationSeconds * 1000);
         var builder = Jwts.builder()
@@ -99,8 +116,12 @@ public class JwtTokenProvider {
                 .claim(CLAIM_USER_ID, userId)
                 .claim(CLAIM_USERNAME, username)
                 .claim(CLAIM_TOKEN_ID, tokenId)
+                .claim(CLAIM_TOKEN_VERSION, tokenVersion)
                 .issuedAt(now)
                 .expiration(expiry);
+        if (familyId != null) {
+            builder.claim(CLAIM_FAMILY_ID, familyId);
+        }
         if (type != null) {
             builder.claim(CLAIM_TYPE, type);
         }

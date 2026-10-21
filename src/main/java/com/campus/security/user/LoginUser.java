@@ -1,7 +1,8 @@
 package com.campus.security.user;
 
-import com.campus.user.entity.User;
+import com.campus.system.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -12,11 +13,14 @@ import java.util.Collection;
 import java.util.List;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LoginUser implements UserDetails {
 
     private Long id;
     private String username;
     private String nickname;
+    private Long deptId;
+    private Integer tokenVersion = 0;
     private List<String> roles = new ArrayList<>();
     private List<String> permissions = new ArrayList<>();
 
@@ -28,6 +32,8 @@ public class LoginUser implements UserDetails {
         loginUser.setId(user.getId());
         loginUser.setUsername(user.getUsername());
         loginUser.setNickname(user.getNickname());
+        loginUser.setDeptId(user.getDeptId());
+        loginUser.setTokenVersion(user.getTokenVersion() == null ? 0 : user.getTokenVersion());
         loginUser.setPassword(user.getPassword());
         loginUser.setRoles(roles != null ? roles : new ArrayList<>());
         loginUser.setPermissions(permissions != null ? permissions : new ArrayList<>());
@@ -42,7 +48,9 @@ public class LoginUser implements UserDetails {
             authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
         }
         for (String permission : permissions) {
-            authorities.add(new SimpleGrantedAuthority(permission));
+            if (permission != null && !permission.isBlank()) {
+                authorities.add(new SimpleGrantedAuthority(permission));
+            }
         }
         return authorities;
     }

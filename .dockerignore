@@ -1,0 +1,11 @@
+target
+.git
+.gitignore
+.idea
+.vscode
+*.iml
+logs
+uploads
+.mimosa
+.agents
+.zcode

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.system.menu.mapper.MenuMapper">
+
+    <sql id="baseColumns">
+        id, parent_id, name, path, component, perms, type, icon, sort, visible, status,
+        create_by, create_time, update_by, update_time, remark, deleted, version
+    </sql>
+
+    <select id="selectAll" resultType="com.campus.system.menu.entity.Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM sys_menu
+        WHERE deleted = 0
+        ORDER BY sort ASC, id ASC
+    </select>
+
+    <select id="selectByUserId" resultType="com.campus.system.menu.entity.Menu">
+        SELECT DISTINCT m.id, m.parent_id, m.name, m.path, m.component, m.perms, m.type,
+               m.icon, m.sort, m.visible, m.status
+        FROM sys_menu m
+        JOIN sys_role_menu rm ON m.id = rm.menu_id
+        JOIN sys_user_role ur ON rm.role_id = ur.role_id
+        JOIN sys_role r ON ur.role_id = r.id AND r.deleted = 0 AND r.status = 1
+        WHERE ur.user_id = #{userId} AND m.deleted = 0 AND m.status = 1
+        ORDER BY m.sort ASC, m.id ASC
+    </select>
+
+    <select id="selectPermsByUserId" resultType="string">
+        SELECT DISTINCT m.perms
+        FROM sys_menu m
+        JOIN sys_role_menu rm ON m.id = rm.menu_id
+        JOIN sys_user_role ur ON rm.role_id = ur.role_id
+        JOIN sys_role r ON ur.role_id = r.id AND r.deleted = 0 AND r.status = 1
+        WHERE ur.user_id = #{userId}
+          AND m.deleted = 0
+          AND m.status = 1
+          AND m.perms IS NOT NULL
+          AND m.perms != ''
+    </select>
+
+    <select id="selectById" resultType="com.campus.system.menu.entity.Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM sys_menu
+        WHERE id = #{id} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_menu (parent_id, name, path, component, perms, type, icon, sort, visible, status,
+                              create_by, create_time, update_by, update_time, remark, deleted, version)
+        VALUES (COALESCE(#{parentId}, 0), #{name}, #{path}, #{component}, #{perms}, #{type}, #{icon},
+                COALESCE(#{sort}, 0), COALESCE(#{visible}, 1), COALESCE(#{status}, 1),
+                #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark},
+                COALESCE(#{deleted}, 0), COALESCE(#{version}, 0))
+    </insert>
+
+    <update id="updateById">
+        UPDATE sys_menu
+        <set>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="path != null">path = #{path},</if>
+            <if test="component != null">component = #{component},</if>
+            <if test="perms != null">perms = #{perms},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="icon != null">icon = #{icon},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="visible != null">visible = #{visible},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = NOW(),
+            version = version + 1
+        </set>
+        WHERE id = #{id} AND deleted = 0 AND version = #{version}
+    </update>
+
+    <update id="logicalDelete">
+        UPDATE sys_menu
+        SET deleted = 1, update_by = #{updateBy}, update_time = NOW(), version = version + 1
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <select id="countChildren" resultType="int">
+        SELECT COUNT(*) FROM sys_menu WHERE parent_id = #{parentId} AND deleted = 0
+    </select>
+
+    <select id="countRoleRefs" resultType="int">
+        SELECT COUNT(*) FROM sys_role_menu WHERE menu_id = #{menuId}
+    </select>
+
+    <delete id="deleteRoleMenuByMenuId">
+        DELETE FROM sys_role_menu WHERE menu_id = #{menuId}
+    </delete>
+
+    <select id="selectMenuIdsByRoleId" resultType="long">
+        SELECT menu_id FROM sys_role_menu WHERE role_id = #{roleId}
+    </select>
+</mapper>
